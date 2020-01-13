@@ -17,14 +17,9 @@ import java.util.List;
 
 public class ExcelReader {
 
-
     private static final String XLS = "xls";
     private static final String XLSX = "xlsx";
 
-
-    public static void main(String[] args) {
-
-    }
 
     /**
      * 根据文件后缀名类型获取对应的工作簿对象

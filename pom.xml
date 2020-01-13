@@ -34,6 +34,7 @@
     </properties>
 
     <dependencies>
+        <!--        apache io utils-->
         <!-- https://mvnrepository.com/artifact/commons-io/commons-io -->
         <dependency>
             <groupId>commons-io</groupId>
@@ -47,7 +48,7 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.9</version>
         </dependency>
-
+        <!--读取 excel-->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
@@ -58,12 +59,17 @@
             <artifactId>poi-ooxml</artifactId>
             <version>4.0.1</version>
         </dependency>
-
+        <!-- a swing look and feel template-->
+        <dependency>
+            <groupId>com.weblookandfeel</groupId>
+            <artifactId>weblaf-ui</artifactId>
+            <version>1.2.11</version>
+        </dependency>
 
     </dependencies>
 
     <build>
-        <finalName>file-repackage</finalName>
+        <finalName>file-picker</finalName>
         <plugins>
             <!--指定 jdk1.8 -->
             <plugin>
@@ -76,7 +82,7 @@
             </plugin>
 
             <!--打成 jar 包-->
-          <plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>2.4.1</version>
@@ -84,13 +90,13 @@
                 <configuration>
                     <!-- get all project dependencies -->
                     <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                        <descriptorRef>all</descriptorRef>
                     </descriptorRefs>
                     <!-- MainClass in mainfest make a executable jar -->
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>com.andy.demo.FileRename</mainClass>
+                            <mainClass>com.andy.demo.ui.MainWindow</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -107,21 +113,6 @@
                 </executions>
             </plugin>
 
-
-            <!--<plugin>-->
-                <!--<groupId>org.apache.maven.plugins</groupId>-->
-                <!--<artifactId>maven-jar-plugin</artifactId>-->
-                <!--<version>2.4</version>-->
-                <!--<configuration>-->
-                    <!--<archive>-->
-                        <!--<manifest>-->
-                            <!--<addClasspath>true</addClasspath>-->
-                            <!--<classpathPrefix>/data/lib</classpathPrefix>-->
-                            <!--<mainClass>com.andy.demo.FileRename</mainClass>-->
-                        <!--</manifest>-->
-                    <!--</archive>-->
-                <!--</configuration>-->
-            <!--</plugin>-->
 
         </plugins>
     </build>

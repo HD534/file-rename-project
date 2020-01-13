@@ -1,5 +1,6 @@
 package com.andy.demo;
 
+import com.andy.demo.ui.MainWindow;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -9,11 +10,12 @@ import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
-import static java.util.stream.Collectors.toMap;
+import static com.andy.demo.Const.*;
+import static java.util.stream.Collectors.toList;
 
-public class FileRename {
+public class FileCopy {
 
 
     private static final String CONFIG_FILE_NAME = "config.properties";
@@ -21,23 +23,18 @@ public class FileRename {
     private static final String EXCEL_PATH_KEY = "excel_path";
     private static final String TARGET_PATH_KEY = "target_path";
 
-    private static String mvDbPath = "/Users/andy/work_space/file_space/mv_db";
+    private static String mvDbPath;
     private static String excelFilePath;
     private static String targetPath;
 
     private static List<File> mvList = new ArrayList<>();
+    private static List<String> mvNameList = new ArrayList<>();
 
     private static List<TargetObject> targetObjectList = new ArrayList<>();
 
     private static Map<String, FileMap> mvMap;
 
     public static void main(String[] args) throws IOException {
-        //1. 读取整个文件列表 /Users/andy/work_space/file_space/mv_db
-        // 将文件列表各文件名字写入一个 list
-        //2. 从excel文件中读取 所需的文件名字进入list
-        //3. 按顺序从所需文件list 中获取名字，在所有文件名字 list 中匹配。
-        //4. 找到文件后将文件重新命名，添加序号，并新增到特定到文件目录中，
-        // e.g.场所序号1001    /Users/andy/work_space/file_space/demo_space/1001
 
         initPathAndConfig();
 
@@ -47,35 +44,41 @@ public class FileRename {
 
         copyFiles();
 
-        System.out.println("完成.");
+    }
+
+    public static void copy() throws Exception {
+        initMvList();
+
+        initTargetList();
+
+        copyFiles();
     }
 
     private static void copyFiles() throws IOException {
         for (TargetObject targetObject : targetObjectList) {
-            System.out.println("-------------------");
-            List<FileMap> toList = new ArrayList<>();
+            List<String> toList = new ArrayList<>();
+            if (CollectionUtils.isEmpty(targetObject.targetList)) {
+                System.out.println("需要复制到的文件路径为空");
+                return;
+            }
 
-            for (String fileName : targetObject.targetList) {
-                if (mvMap.containsKey(fileName)) {
-                    toList.add(mvMap.get(fileName));
+            for (String mvFileName : targetObject.targetList) {
+                if (mvNameList.contains(mvFileName)) {
+                    int i = mvNameList.indexOf(mvFileName);
+                    toList.add(mvNameList.get(i));
                 }
             }
-            toList.sort(new Comparator<FileMap>() {
-                @Override
-                public int compare(FileMap o1, FileMap o2) {
-                    return o1.originOrder.compareTo(o2.originOrder);
-                }
-            });
-            for (int i = 0; i < toList.size(); i++) {
-                toList.get(i).order = i + 1;
-            }
+
             String tPath = targetPath + File.separator + targetObject.excelName;
-            copyFiles(tPath, toList);
+
+//            FileCopyThreadPoolExecutor.executor.execute(() -> {
+                copyFiles(tPath, toList);
+//            });
         }
     }
 
     private static void initPathAndConfig() throws IOException {
-        String path = FileRename.class.getProtectionDomain().getCodeSource().getLocation().getFile();
+        String path = FileCopy.class.getProtectionDomain().getCodeSource().getLocation().getFile();
         File jarPath = new File(path);
 
         Properties pro = new Properties();
@@ -107,22 +110,29 @@ public class FileRename {
 
     }
 
-    private static void copyFiles(String targetPath, List<FileMap> toList) throws IOException {
+    private static void copyFiles(String targetPath, List<String> toList) {
+        long start = System.currentTimeMillis();
         if (StringUtils.isEmpty(targetPath)) {
-            System.err.println("需要复制到的文件路径为空");
             return;
         }
         if (CollectionUtils.isEmpty(toList)) {
-            System.out.println("需要复制到文件列表为空");
+            MainWindow.log(String.format("需要复制到文件列表 %s 的 mp4 文件为空", targetPath));
             return;
         }
-        System.out.println(String.format("开始复制文件到路径 %s ",targetPath));
-        System.out.println(String.format("总共有 %s 个文件需要复制",toList.size()));
-        for (FileMap fileMap : toList) {
-            FileUtils.copyFile(new File(mvDbPath + File.separator + fileMap.fileOriginName),
-                    new File(targetPath + File.separator + fileMap.order + "、" + fileMap.name));
+        MainWindow.log(String.format("开始复制 mp4 文件到路径 %s ; 总共有 %s 个文件需要复制", targetPath, toList.size()));
+        for (String name : toList) {
+            try {
+                FileUtils.copyFile(new File(mvDbPath + File.separator + name),
+                        new File(targetPath + File.separator + name));
+            } catch (IOException e) {
+                e.printStackTrace();
+                MainWindow.log(String.format("复制文件 %s 到路径 %s 失败！", name, targetPath));
+            }
         }
-        System.out.println(String.format("成功复制文件到路径 %s ",targetPath));
+        long end = System.currentTimeMillis();
+        long period = end - start;
+
+        MainWindow.log(String.format("成功复制文件到路径 %s 消耗时间: %s 秒\n ", targetPath, TimeUnit.MILLISECONDS.toSeconds(period)));
     }
 
     private static void initTargetList() {
@@ -134,8 +144,9 @@ public class FileRename {
                 return pathname.getName().contains(".xlsx") || pathname.getName().contains(".xls");
             }
         });
-        if (excelFileList == null) {
-            throw new RuntimeException(excelFilePath+" 中没有找到 excel 文件.");
+        if (excelFileList == null || excelFileList.length == 0) {
+            MainWindow.log(excelFilePath + " 中没有找到 excel 文件.");
+            throw new RuntimeException(excelFilePath + " 中没有找到 excel 文件.");
         }
         for (File file : excelFileList) {
             List<String> strings = ExcelReader.readExcel(file.getAbsolutePath());
@@ -146,7 +157,7 @@ public class FileRename {
     }
 
     private static void initMvList() {
-        System.out.println("开始加载mv_db...");
+        MainWindow.log(String.format("开始加载歌曲数据库 %s 中的文件。", mvDbPath));
         File dir = new File(mvDbPath);
         File[] mvArray = dir.listFiles(new FileFilter() {
             @Override
@@ -154,26 +165,17 @@ public class FileRename {
                 return pathname.isFile() && pathname.getName().contains(".mp4");
             }
         });
-        if (mvArray == null) {
+        if (mvArray == null || mvArray.length == 0) {
             throw new RuntimeException(mvDbPath + " 中没有找到 mp4 文件.");
         }
-        System.out.println("加载完成. mp4 文件数量:" + mvArray.length);
+        MainWindow.log("加载完成。歌曲数据库中 mp4 文件数量为:" + mvArray.length);
         List<File> fileList = Arrays.asList(mvArray);
-        mvList = fileList.stream()
-                .sorted(new Comparator<File>() {
-                    @Override
-                    public int compare(File f1, File f2) {
-                        Integer order1 = getOrder(f1);
-                        Integer order2 = getOrder(f2);
-                        return order1.compareTo(order2);
-                    }
-                })
-                .collect(Collectors.toList());
-        mvMap = mvList.stream()
-                .collect(toMap(FileRename::getNameWithoutOrderNumber, f -> {
-                    int order = getOrder(f);
-                    return new FileMap(order, getNameWithoutOrderNumber(f), f.getName());
-                }));
+        mvNameList = fileList.stream().map(File::getName).collect(toList());
+//        mvMap = mvList.stream()
+//                .collect(toMap(FileCopy::getNameWithoutOrderNumber, f -> {
+//                    int order = getOrder(f);
+//                    return new FileMap(order, getNameWithoutOrderNumber(f), f.getName());
+//                }));
 //        System.out.println(mvMap);
 
     }
@@ -218,6 +220,34 @@ public class FileRename {
     }
 
 
+    public static void copy(String inputMvDbPath, String inputExcelPath, String inputTargetPath) throws Exception {
+//        TimeUnit.SECONDS.sleep(2);
+        verifyPaths(inputMvDbPath, inputExcelPath, inputTargetPath);
+        mvDbPath = inputMvDbPath;
+        excelFilePath = inputExcelPath;
+        targetPath = inputTargetPath;
+        copy();
+    }
+
+    private static void verifyPaths(String mvDbPath, String excelPath, String targetPath) {
+        verifyPath(mvDbPath, MV_DB_PATH_CHINESE_NAME);
+        verifyPath(excelPath, EXCEL_PATH_CHINESE_NAME);
+        verifyPath(targetPath, TARGET_PATH_CHINESE_NAME);
+    }
+
+    private static void verifyPath(String mvDbPath, String pathName) {
+        File f = new File(mvDbPath);
+        boolean exists = f.exists();
+        if (exists) {
+            if (!f.isDirectory()) {
+                MainWindow.log(pathName + " " + mvDbPath + " 不是文件夹路径，请重新选择。");
+                throw new RuntimeException(pathName + " " + mvDbPath + " 不是文件夹路径，请重新选择。");
+            }
+        } else {
+            MainWindow.log(pathName + " " + mvDbPath + " 不存在，请重新选择。");
+            throw new RuntimeException(pathName + " " + mvDbPath + " 不存在，请重新选择。");
+        }
+    }
 }
 
 
